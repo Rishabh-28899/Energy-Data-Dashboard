@@ -18,3 +18,7 @@ Excel → API → Messaging Service → SQL Database → Power BI
 
 Artitecture of Project
 <img width="654" height="490" alt="image" src="https://github.com/user-attachments/assets/cb2618b2-45cb-4aed-aa63-4754f50fc7cd" />
+
+The E-Dash
+<img width="899" height="501" alt="image" src="https://github.com/user-attachments/assets/f224ea7b-b01d-4cab-8927-53275768302b" />
+
