@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.DependencyInjection;
 using Emergy_report.Data;
 using Emergy_report.models;
+using Microsoft.EntityFrameworkCore;
 
 namespace Emergy_report.Services
 {
@@ -43,33 +44,62 @@ namespace Emergy_report.Services
         // ⚙️ Queue → DB
         private async Task ProcessQueue(CancellationToken stoppingToken)
         {
-
-
             using var scope = _scopeFactory.CreateScope();
             var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-            var validRecords = new List<Emerguapp>();
+            // ✅ Current DB count
+            var currentCount = await context.Emerguapp.CountAsync();
 
+            int maxLimit = 196;
+
+            // ❌ If already full → clear queue
+            if (currentCount >= maxLimit)
+            {
+                _logger.LogWarning("❌ Limit reached. Clearing entire queue...");
+
+                while (_queue.TryDequeue(out _)) { }
+
+                return;
+            }
+
+            // ✅ Calculate how many records we can still insert
+            int allowed = maxLimit - currentCount;
+
+            var validRecords = new List<Emerguapp>();
+            int processed = 0;
+
+            // ✅ Dequeue only allowed records
             while (_queue.TryDequeue(out var record))
             {
                 if (record == null || record.Date == default)
                     continue;
 
-                record.Date = record.Date.Date;
-                validRecords.Add(record);
+                if (processed < allowed)
+                {
+                    record.Date = record.Date.Date;
+                    validRecords.Add(record);
+                    processed++;
 
-                Console.WriteLine($"Processing Block: {record.Block}");
+                    Console.WriteLine($"✅ Processing Block: {record.Block}");
+                }
+                else
+                {
+                    // ❌ Extra records → discard
+                    Console.WriteLine($"❌ Skipped (limit reached) Block: {record.Block}");
+                }
             }
 
+            // ✅ Insert only allowed records
             if (validRecords.Count > 0)
             {
                 context.Emerguapp.AddRange(validRecords);
                 await context.SaveChangesAsync();
+
+                _logger.LogInformation($"Inserted {validRecords.Count} records. Total now: {currentCount + validRecords.Count}");
             }
         }
     }
 }
-    
-    
-    
-        
+
+
+
